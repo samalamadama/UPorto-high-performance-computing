@@ -1,0 +1,43 @@
+#pragma once
+#include <cmath>
+#include <eigen3/Eigen/Dense>
+#include <iostream>
+
+using namespace std;
+using namespace Eigen;
+
+
+Eigen::VectorXd vetor_prop(const Eigen::VectorXd& diag,const Eigen::VectorXd& diag_s, const double& tau)
+{
+  int L                 = diag.size();
+  Eigen::VectorXd d     = Eigen::VectorXd::Zero(L);
+  Eigen::VectorXd delta = Eigen::VectorXd::Zero(L);
+  Eigen::VectorXd miu   = Eigen::VectorXd::Zero(L);
+  Eigen::VectorXd z     = Eigen::VectorXd::Zero(L);
+
+  d(0) = diag(0) - tau;
+  delta(L - 1) = diag(L - 1) - tau;
+  for (int i = 1; i < L; i++)
+    {
+      d(i) = diag(i) - tau - pow(diag_s(i - 1), 2) / d(i - 1);
+      delta(L - 1 - i) = diag(L - 1 - i) - tau - pow(diag_s(L - 1 - i), 2) / delta(L - i);
+    }
+  miu(0) = delta(0);
+  int k = 0;
+  for (int i = 1; i < L; i++)
+    {
+      miu(i) = miu(i - 1) * delta(i) / d(i - 1);
+      if (abs(miu(i)) < abs(miu(k)))
+        k = i;
+    }
+
+  z(k) = 1.;
+  for (int i = k - 1; i >= 0; i--)
+    z(i) = -z(i + 1) * diag_s(i) / d(i);
+
+  for (int i = k + 1; i < L; i++)
+    z(i) = -diag_s(i - 1) * z(i - 1) / delta(i);
+  return z / z.norm();
+};
+
+
