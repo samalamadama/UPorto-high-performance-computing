@@ -54,7 +54,8 @@ std::vector<std::pair<double, double>> get_DOS(
                   return std::make_pair(current_value, 0.);
                 });
 
-  #pragma omp parallel for schedule(static, 4) firstprivate(real_eigenvalues, delta_approximation)
+#pragma omp parallel for schedule(static, 4)                                   \
+    firstprivate(real_eigenvalues, delta_approximation)
   for (auto &current_point : evaluated_dos) {
     for (const double &energy_mean : real_eigenvalues) {
       current_point.second +=
@@ -74,7 +75,7 @@ void compute_BN_DOS(HPC::Benchmarker<std::string> &benchmarker) {
   auto H = BN_builder.real_space_pbc_hamiltonian();
   benchmarker.save_time("initialization ends");
 
-  Eigen::SelfAdjointEigenSolver<Eigen::MatrixXcd> eigen_solver(H, Eigen::EigenvaluesOnly);
+  Eigen::SelfAdjointEigenSolver<Eigen::MatrixXcd> eigen_solver(H);
   benchmarker.save_time("matrix diagonalization");
 
   auto lorentzian = [stddev](double mode, double x) {
@@ -94,8 +95,9 @@ int main() {
     omp_set_num_threads(thread_number);
     HPC::Benchmarker<std::string> benchmarker("BN program begins");
     compute_BN_DOS(benchmarker);
-    std::ofstream benchmark_file("exercise_6_data/BN_benchmark_improved_" +std::to_string(thread_number) +"_threads");
+    std::ofstream benchmark_file("exercise_6_data/BN_benchmark_improved_" +
+                                 std::to_string(thread_number) + "_threads");
     benchmarker.print_time_intervals<std::chrono::nanoseconds>(benchmark_file);
-    progress_bar.update(static_cast<double>(thread_number)/8);
+    progress_bar.update(static_cast<double>(thread_number) / 8);
   }
 }

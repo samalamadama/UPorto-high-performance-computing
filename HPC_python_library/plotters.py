@@ -1,10 +1,13 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider
+from ipywidgets import interact, IntSlider
+import ipywidgets as widgets
 import os
 import re
-import matplotlib.pyplot as plt
-from collections import defaultdict
+from collections import defaultdict 
+from matplotlib.tri import Triangulation
+
 
 def plotter_not_CVS(filename):
     data = np.loadtxt(filename)
@@ -50,36 +53,26 @@ def plotter_slider(filename):
     data = np.loadtxt(filename)
     title = filename + " plot"
 
-    #the first value is null 
-    x = data[0, 1:]  
+    # Extract x, y, z
+    x = data[0, 1:]
     y = data[1:, 0]
     z = data[1:, 1:]
 
-    # Create figure and axis
-    fig, ax = plt.subplots()
-    plt.subplots_adjust(bottom=0.2)
-    
-    # Plot initial data
-    line, = ax.plot(x, z[512, :], label=f"y = {y[0]}")  # Start with first row
-    ax.legend()
-    
-    # Create a discrete slider
-    ax_slider = plt.axes([0.2, 0.05, 0.65, 0.03])
-    slider = Slider(ax_slider, 'y', 0, len(y) - 1, valinit=512)
+    # Interactive update function
+    def update(y_index):
+        plt.figure(figsize=(8, 4))
+        plt.plot(x, z[y_index, :], label=f"y = {y[y_index]}")
+        plt.title(title)
+        plt.xlabel("x")
+        plt.ylabel("z")
+        plt.ylim(np.min(z[y_index, :]) - 0.1, np.max(z[y_index, :]) + 0.1)
+        plt.legend()
+        plt.grid(True)
+        plt.show()
 
-    # Update function
-    def update(val):
-        y_index = int(slider.val)  # Get index from slider
-        line.set_ydata(z[y_index, :])  # Update plot
-        ax.set_ylim(np.min(z[y_index, :]) - 0.1, np.max(z[y_index, :]) + 0.1)
-        line.set_label(f"y = {y[y_index]}")  # Update legend
-        ax.legend()
+    # Use ipywidgets to create an interactive slider
+    interact(update, y_index=IntSlider(min=0, max=len(y)-1, step=1, value=512, description='y index'))
 
-        fig.canvas.draw_idle()
-    
-    # Connect the update function to the slider
-    slider.on_changed(update)
-    plt.show()
 
 def plotter_colormap_not_CSV(filename):
     data = np.loadtxt(filename)
@@ -149,4 +142,63 @@ def benchmark_plotter(path, name, *benchmarks):
     plt.legend()
     plt.grid(True)
     plt.tight_layout()
+    plt.show()
+
+def plot_graphene_ldos(filename, Nx, Ny, a=1.0):
+    """
+    Plot interactive LDOS colormap over a 2D graphene lattice.
+    
+    Parameters:
+    - filename: path to the LDOS data file
+    - Nx, Ny: number of unit cells in x and y directions
+    - a: lattice constant (default = 1.0)
+    """
+    # Load data
+    data = np.genfromtxt(filename, delimiter=",")
+    energies = data[1:, 0]  # energy axis
+    site_indices = data[0, 1:].astype(int)
+    ldos = data[1:, 1:]
+
+    def index_to_pos(index):
+        """Convert unwrapped index to (x, y) position on hex lattice."""
+        base = index // 2
+        typ = index % 2
+        x = base // Ny
+        y = base % Ny
+        dx = a * 3/2 * x
+        dy = a * np.sqrt(3) * (y + 0.5 * (x % 2))
+        if typ == 0:
+            return dx, dy
+        else:
+            return dx + a * 0.5, dy + a * np.sqrt(3)/2
+
+    positions = np.array([index_to_pos(i) for i in site_indices])
+    x_pos, y_pos = positions[:, 0], positions[:, 1]
+
+    def plot_ldos_at_index(idx):
+        e = energies[idx]
+        plt.figure(figsize=(12, 6))
+        sc = plt.scatter(x_pos, y_pos, c=ldos[idx, :], cmap='viridis', s=50, edgecolors='k')
+        plt.colorbar(sc, label=f'Local density of states')
+        plt.title(f"Graphene LDOS (E = {e:.3f})")
+        plt.axis('equal')
+        plt.axis('off')
+        plt.show()
+
+    # Use integer slider to select exact column
+    interact(plot_ldos_at_index,
+             idx=IntSlider(value=len(energies)//2, min=0, max=len(energies)-1, step=1, description='Energy index'))
+
+def scatter_matrix(filename):
+    data = np.genfromtxt(filename, delimiter=",")
+    x_values = data[0, 1:]
+    y_all_values = data[1:, 1:]
+
+    for i, x in enumerate(x_values):
+        y_values = y_all_values[:, i]
+        x_values = np.full_like(y_values, x)  # Repeat x for all y values
+        plt.scatter(x_values, y_values)
+
+    plt.xlabel("X values")
+    plt.ylabel("Y values")
     plt.show()
